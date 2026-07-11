@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resilience Assessment System | CAPS, CHRIST University</title>
+  <meta name="description" content="Nicholson McBride Resilience Questionnaire (NMRQ) — administered by the Centre for Academic and Professional Support, CHRIST (Deemed to be University), Bengaluru." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <?!= HtmlService.createHtmlOutputFromFile('Styles').getContent(); ?></head>
+<body>
+  <!-- ============================================================
+       Resilience Assessment System
+       Centre for Academic and Professional Support (CAPS)
+       CHRIST (Deemed to be University), Bengaluru-560029
+       ============================================================ -->
+
+  <header class="site-header" role="banner">
+    <div class="container header-inner">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 3 L27 9 V19 C27 24 22 28 16 30 C10 28 5 24 5 19 V9 Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M11 16 L15 20 L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <p class="brand-eyebrow">Centre for Academic and Professional Support</p>
+          <h1 class="brand-title">Resilience Assessment System</h1>
+          <p class="brand-sub">CHRIST (Deemed to be University), Bengaluru-560029</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Progress indicator -->
+  <div class="progress-wrap container" aria-label="Assessment progress">
+    <ol class="steps" id="steps">
+      <li class="step active" data-step="1"><span class="step-dot">1</span><span class="step-label">Candidate Info</span></li>
+      <li class="step" data-step="2"><span class="step-dot">2</span><span class="step-label">Questionnaire</span></li>
+      <li class="step" data-step="3"><span class="step-dot">3</span><span class="step-label">Confirmation</span></li>
+    </ol>
+    <div class="progress-bar" aria-hidden="true"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <main class="container main" id="main">
+
+    <!-- =================== PAGE 1: Candidate Info =================== -->
+    <section class="page active" id="page-1" aria-labelledby="page1-title">
+      <article class="card">
+        <div class="card-head">
+          <span class="eyebrow">Step 1 of 3</span>
+          <h2 id="page1-title">Candidate Information</h2>
+          <p class="lede">Please provide your details. This information will be attached to your assessment report.</p>
+        </div>
+
+        <form id="candidateForm" class="form-grid" novalidate>
+          <div class="field">
+            <label for="fullName">Full Name</label>
+            <input type="text" id="fullName" name="fullName" autocomplete="name" required placeholder="e.g. Anjali Menon" />
+          </div>
+
+          <div class="field">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" autocomplete="email" required placeholder="name@christuniversity.in" />
+          </div>
+
+          <div class="field">
+            <label for="regNumber">Register Number / Employee ID</label>
+            <input type="text" id="regNumber" name="regNumber" required placeholder="e.g. 2347123 or EMP-0421" />
+          </div>
+
+          <div class="field">
+            <label for="department">Department</label>
+            <input type="text" id="department" name="department" required placeholder="e.g. School of Business and Management" />
+          </div>
+
+          <div class="field field-full">
+            <label for="programme">Programme / Designation</label>
+            <input type="text" id="programme" name="programme" required placeholder="e.g. MBA (II Year) or Assistant Professor" />
+          </div>
+
+          <div class="form-actions field-full">
+            <button type="submit" class="btn btn-primary">
+              Start Assessment
+              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12m0 0-4-4m4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </form>
+      </article>
+    </section>
+
+    <!-- =================== PAGE 2: Questionnaire =================== -->
+    <section class="page" id="page-2" aria-labelledby="page2-title" hidden>
+      <article class="card">
+        <div class="card-head">
+          <span class="eyebrow">Step 2 of 3</span>
+          <h2 id="page2-title">Resilience Questionnaire</h2>
+          <div class="instructions">
+            <p>
+              This is an abbreviated version of the <strong>Nicholson McBride Resilience Questionnaire (NMRQ)</strong>. For each question, score yourself between <strong>1 and 5</strong>, where <strong>1 = strongly disagree</strong> and <strong>5 = strongly agree</strong>.
+            </p>
+            <p>
+              Be honest: understanding the specific areas in which you lack resilience will enable you to get the most of our 10-point booster plan.
+            </p>
+          </div>
+        </div>
+
+        <form id="questionnaireForm" novalidate>
+          <ol class="questions" id="questionsList"><!-- populated by JS --></ol>
+
+          <p class="validation-msg" id="validationMsg" role="alert" aria-live="polite"></p>
+
+          <div class="form-actions split">
+            <button type="button" class="btn btn-ghost" id="btnPrev">
+              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M16 10H4m0 0 4-4m-4 4 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Previous
+            </button>
+            <button type="submit" class="btn btn-primary" id="btnSubmit">
+              Submit Assessment
+              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12m0 0-4-4m4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </form>
+      </article>
+    </section>
+
+    <!-- =================== PAGE 3: Confirmation =================== -->
+    <section class="page" id="page-3" aria-labelledby="page3-title" hidden>
+      <article class="card card-confirm">
+        <div class="success-badge" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none">
+            <circle cx="24" cy="24" r="22" stroke="currentColor" stroke-width="2"/>
+            <path d="M14 24l7 7 13-14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h2 id="page3-title">Thank you for completing the assessment.</h2>
+        <p class="confirm-lede">Your responses have been recorded successfully.</p>
+        <p class="confirm-sub">Your assessment report will be sent to your registered email address.</p>
+
+        <div class="receipt" id="receiptPreview" aria-live="polite"></div>
+
+        <div class="form-actions center">
+          <button type="button" class="btn btn-accent" id="btnReceipt">
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3v10m0 0-4-4m4 4 4-4M4 17h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Download Receipt
+          </button>
+        </div>
+      </article>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; <span id="year"></span> Centre for Academic and Professional Support · CHRIST (Deemed to be University), Bengaluru-560029</p>
+    </div>
+  </footer>
+
+  <?!= HtmlService.createHtmlOutputFromFile('Scripts').getContent(); ?>
+</body>
+</html>

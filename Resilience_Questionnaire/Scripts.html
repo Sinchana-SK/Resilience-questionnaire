@@ -1,0 +1,359 @@
+<script>
+
+  /* ============================================================
+   Resilience Assessment System — Client Script
+   Centre for Academic and Professional Support (CAPS)
+   CHRIST (Deemed to be University), Bengaluru-560029
+   ------------------------------------------------------------
+   Vanilla JS. No frameworks. Designed for later integration
+   with Google Apps Script (google.script.run.*).
+   ============================================================ */
+
+  (function () {
+    "use strict";
+
+    /* ---------------- Data ---------------- */
+
+    // 12 NMRQ (abbreviated) questions
+    const QUESTIONS = [
+      "In a difficult spot, I turn at once to what can be done to put things right.",
+      "I influence where I can, rather than worrying about what I can't influence.",
+      "I don't take criticism personally.",
+      "I generally manage to keep things in perspective.",
+      "I am calm in a crisis.",
+      "I'm good at finding solutions to problems.",
+      "I wouldn't describe myself as an anxious person.",
+      "I don't tend to avoid conflict.",
+      "I try to control events rather than being a victim of circumstances.",
+      "I trust my intuition.",
+      "I manage my stress levels well.",
+      "I feel confident and secure in my position."
+    ];
+
+    const RATING_LABELS = {
+      1: "Strongly Disagree",
+      2: "Disagree",
+      3: "Neutral",
+      4: "Agree",
+      5: "Strongly Agree"
+    };
+
+    /* ---------------- Application state ---------------- */
+
+    const state = {
+      currentStep: 1,
+      candidate: null,         // populated from page 1
+      responses: {},           // { q1: 5, q2: 3, ... }
+      submittedAt: null
+    };
+
+    /* ---------------- DOM refs ---------------- */
+
+    const pages = {
+      1: document.getElementById("page-1"),
+      2: document.getElementById("page-2"),
+      3: document.getElementById("page-3")
+    };
+    const stepsEl = document.getElementById("steps");
+    const progressFill = document.getElementById("progressFill");
+
+    const candidateForm = document.getElementById("candidateForm");
+    const questionnaireForm = document.getElementById("questionnaireForm");
+    const questionsList = document.getElementById("questionsList");
+    const validationMsg = document.getElementById("validationMsg");
+
+    const btnPrev = document.getElementById("btnPrev");
+    const btnReceipt = document.getElementById("btnReceipt");
+    const receiptPreview = document.getElementById("receiptPreview");
+
+    /* ---------------- Init ---------------- */
+
+    document.getElementById("year").textContent = new Date().getFullYear();
+    renderQuestions();
+    bindEvents();
+
+    /* ---------------- Rendering ---------------- */
+
+    function renderQuestions() {
+      const html = QUESTIONS.map((text, idx) => {
+        const qid = "q" + (idx + 1);
+        const options = [1, 2, 3, 4, 5].map((val) => `
+          <div class="rating-option">
+            <input type="radio" id="${qid}_${val}" name="${qid}" value="${val}" />
+            <label for="${qid}_${val}">
+              ${val}
+              <small>${shortLabel(val)}</small>
+            </label>
+          </div>
+        `).join("");
+
+        return `
+          <li class="question" data-qid="${qid}">
+            <p class="question-text">${escapeHtml(text)}</p>
+            <div class="rating" role="radiogroup" aria-label="Rate from 1 to 5">
+              ${options}
+            </div>
+          </li>
+        `;
+      }).join("");
+
+      questionsList.innerHTML = html;
+    }
+
+    function shortLabel(v) {
+      if (v === 1) return "Strongly Disagree";
+      if (v === 5) return "Strongly Agree";
+      if (v === 3) return "Neutral";
+      return v === 2 ? "Disagree" : "Agree";
+    }
+
+    /* ---------------- Events ---------------- */
+
+    function bindEvents() {
+      candidateForm.addEventListener("submit", onCandidateSubmit);
+      questionnaireForm.addEventListener("submit", onQuestionnaireSubmit);
+      questionnaireForm.addEventListener("change", onRatingChange);
+      btnPrev.addEventListener("click", () => goToStep(1));
+      btnReceipt.addEventListener("click", downloadReceipt);
+    }
+
+    function onCandidateSubmit(e) {
+      e.preventDefault();
+      if (!candidateForm.checkValidity()) {
+        candidateForm.reportValidity();
+        return;
+      }
+      const fd = new FormData(candidateForm);
+      state.candidate = {
+        fullName: (fd.get("fullName") || "").toString().trim(),
+        email: (fd.get("email") || "").toString().trim(),
+        regNumber: (fd.get("regNumber") || "").toString().trim(),
+        department: (fd.get("department") || "").toString().trim(),
+        programme: (fd.get("programme") || "").toString().trim()
+      };
+      goToStep(2);
+    }
+
+    function onRatingChange(e) {
+      if (e.target && e.target.matches('input[type="radio"]')) {
+        const qid = e.target.name;
+        state.responses[qid] = Number(e.target.value);
+        const li = questionsList.querySelector(`[data-qid="${qid}"]`);
+        if (li) li.classList.add("answered");
+        validationMsg.textContent = "";
+      }
+    }
+
+    function onQuestionnaireSubmit(e) {
+      e.preventDefault();
+      const unanswered = [];
+      for (let i = 1; i <= QUESTIONS.length; i++) {
+        if (!state.responses["q" + i]) unanswered.push(i);
+      }
+      if (unanswered.length > 0) {
+        validationMsg.textContent =
+          "Please answer all questions before submitting. Missing: Q" +
+          unanswered.join(", Q") + ".";
+        const firstMissing = questionsList.querySelector(`[data-qid="q${unanswered[0]}"]`);
+        if (firstMissing) firstMissing.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      state.submittedAt = new Date().toISOString();
+
+      const payload = generateAssessmentPayload();
+
+
+      
+      google.script.run.submitAssessment(payload);
+
+      google.script.run.sendEmailReport(payload);
+
+      renderReceipt();
+      goToStep(3);
+    }
+
+    /* ---------------- Step navigation ---------------- */
+
+    function goToStep(n) {
+      state.currentStep = n;
+      Object.keys(pages).forEach((k) => {
+        const el = pages[k];
+        const active = Number(k) === n;
+        el.classList.toggle("active", active);
+        el.hidden = !active;
+      });
+      updateProgress(n);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function updateProgress(n) {
+      const items = stepsEl.querySelectorAll(".step");
+      items.forEach((li) => {
+        const stepNum = Number(li.dataset.step);
+        li.classList.toggle("active", stepNum === n);
+        li.classList.toggle("done", stepNum < n);
+      });
+      const pct = (n / 3) * 100;
+      progressFill.style.width = pct + "%";
+    }
+
+    /* ---------------- Receipt ---------------- */
+
+    function renderReceipt() {
+      const c = state.candidate || {};
+      const score = calculateTotalScore();
+      receiptPreview.innerHTML = `
+        <div class="receipt-row"><span>Candidate</span><strong>${escapeHtml(c.fullName || "")}</strong></div>
+        <div class="receipt-row"><span>Email</span><strong>${escapeHtml(c.email || "")}</strong></div>
+        <div class="receipt-row"><span>Register / Employee ID</span><strong>${escapeHtml(c.regNumber || "")}</strong></div>
+        <div class="receipt-row"><span>Department</span><strong>${escapeHtml(c.department || "")}</strong></div>
+        <div class="receipt-row"><span>Programme / Designation</span><strong>${escapeHtml(c.programme || "")}</strong></div>
+        <div class="receipt-row"><span>Submitted</span><strong>${new Date(state.submittedAt).toLocaleString()}</strong></div>
+        <div class="receipt-row"><span>Total Score (of 60)</span><strong>${score}</strong></div>
+      `;
+    }
+
+    function downloadReceipt() {
+      /* PLACEHOLDER:
+        Receipt generation will later be handled by Google Apps Script,
+        which can return a PDF from a Google Doc template:
+        // google.script.run
+        //   .withSuccessHandler(handleReceiptUrl)
+        //   .generateReceiptPdf(generateAssessmentPayload());
+      */
+      const payload = generateAssessmentPayload();
+      const text = formatReceiptText(payload);
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Resilience-Assessment-Receipt-${(payload.candidate.regNumber || "candidate")}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function formatReceiptText(p) {
+      const lines = [];
+      lines.push("CHRIST (Deemed to be University), Bengaluru-560029");
+      lines.push("Centre for Academic and Professional Support (CAPS)");
+      lines.push("Nicholson McBride Resilience Questionnaire (NMRQ)");
+      lines.push("--------------------------------------------------");
+      lines.push("Name        : " + p.candidate.fullName);
+      lines.push("Email       : " + p.candidate.email);
+      lines.push("Reg/Emp ID  : " + p.candidate.regNumber);
+      lines.push("Department  : " + p.candidate.department);
+      lines.push("Programme   : " + p.candidate.programme);
+      lines.push("Submitted   : " + new Date(p.submittedAt).toLocaleString());
+      lines.push("Total Score : " + p.totalScore + " / 60");
+      lines.push("--------------------------------------------------");
+      lines.push("Responses:");
+      p.responses.forEach((r) => {
+        lines.push(`Q${r.index}. (${r.score}/5 — ${r.label})  ${r.question}`);
+      });
+      return lines.join("\n");
+    }
+
+    /* ---------------- Utilities ---------------- */
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (s) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[s]));
+    }
+
+    /* ============================================================
+      PLACEHOLDER FUNCTIONS — to be wired to Google Apps Script
+      ============================================================ */
+
+    /**
+     * calculateTotalScore
+     * Sums all responses (range 12–60).
+     * Will remain client-side; Apps Script may recompute server-side.
+     */
+    function calculateTotalScore() {
+      let total = 0;
+      for (let i = 1; i <= QUESTIONS.length; i++) {
+        total += Number(state.responses["q" + i] || 0);
+      }
+      return total;
+    }
+
+    /**
+     * generateAssessmentPayload
+     * Builds the JSON payload that will be sent to Google Apps Script.
+     * Structure is intentionally simple and serializable.
+     */
+    function generateAssessmentPayload() {
+      const responses = QUESTIONS.map((q, idx) => {
+        const score = Number(state.responses["q" + (idx + 1)] || 0);
+        return {
+          index: idx + 1,
+          question: q,
+          score: score,
+          label: RATING_LABELS[score] || ""
+        };
+      });
+      return {
+        meta: {
+          instrument: "Nicholson McBride Resilience Questionnaire (NMRQ) — abbreviated",
+          institution: "CHRIST (Deemed to be University), Bengaluru-560029",
+          department: "Centre for Academic and Professional Support (CAPS)"
+        },
+        candidate: state.candidate || {},
+        responses: responses,
+        totalScore: calculateTotalScore(),
+        submittedAt: state.submittedAt
+      };
+    }
+
+    /**
+     * submitAssessment
+     * PLACEHOLDER. In production, replace the body with:
+     *
+     *   google.script.run
+     *     .withSuccessHandler(onSubmitSuccess)
+     *     .withFailureHandler(onSubmitFailure)
+     *     .submitAssessment(generateAssessmentPayload());
+     *
+     * The Apps Script function should append the payload to a
+     * Google Sheet and return a record ID.
+     */
+    function submitAssessment() {
+      const payload = generateAssessmentPayload();
+      // TODO: Replace with google.script.run.submitAssessment(payload)
+      console.log("[submitAssessment placeholder] payload =", payload);
+    }
+
+    /**
+     * sendEmailReport
+     * PLACEHOLDER. In production, replace the body with:
+     *
+     *   google.script.run
+     *     .withSuccessHandler(onEmailSent)
+     *     .withFailureHandler(onEmailFailure)
+     *     .sendEmail(generateAssessmentPayload());
+     *
+     * The Apps Script function should email a formatted report
+     * (including the 10-point booster plan) to the candidate.
+     */
+    function sendEmailReport() {
+      const payload = generateAssessmentPayload();
+      // TODO: Replace with google.script.run.sendEmail(payload)
+      console.log("[sendEmailReport placeholder] would email:", payload.candidate.email);
+    }
+
+    // Expose for easy debugging / future Apps Script wiring
+    window.ResilienceAssessment = {
+      state,
+      calculateTotalScore,
+      generateAssessmentPayload,
+      submitAssessment,
+      sendEmailReport
+    };
+  })();
+
+
+
+</script>
